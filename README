@@ -1,0 +1,100 @@
+# FDS Enterprise — CI/CD Pipeline Jenkins
+
+## Stages de la pipeline
+
+```
+📥 Checkout
+    ↓
+🧪 Test (pytest + coverage)
+    ↓
+🔍 Code Quality (Flake8 + Safety) ← parallel
+    ↓
+🐳 Build Docker Image (multi-stage)
+    ↓
+🔒 Security Scan (Trivy)
+    ↓
+📤 Push Docker Hub
+    ↓
+🚀 Deploy (SSH → docker compose up)
+    ↓
+💨 Smoke Tests (/health, /metrics, /api/transactions)
+```
+
+## Structure attendue
+
+```
+fds-enterprise/
+├── Jenkinsfile                ← Ce fichier
+├── tests/
+│   └── test_fds_enterprise.py ← Tests CI
+├── backend/
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── app.py
+│   ├── config/settings.py
+│   ├── models/
+│   ├── routes/
+│   ├── services/fraud_service.py
+│   └── middleware/
+├── nginx/nginx.conf
+├── prometheus/prometheus.yml
+├── grafana/provisioning/
+├── docker-compose.yml
+└── .env
+```
+
+## Credentials Jenkins à configurer
+
+| ID Jenkins            | Type                      | Valeur |
+|-----------------------|---------------------------|--------|
+| `docker-hub-creds`    | Username/Password         | Login Docker Hub |
+| `DOCKER_REGISTRY`     | Secret text               | Ton username Docker Hub |
+| `DEPLOY_SERVER_IP`    | Secret text               | IP du serveur (ex: 51.xx.xx.xx) |
+| `deploy-ssh-key`      | SSH Username + Private Key| Clé SSH vers le serveur |
+
+## Plugins Jenkins requis
+
+```
+Pipeline, Git, SSH Agent, AnsiColor,
+Cobertura, JUnit, Credentials Binding
+```
+
+## Installer Jenkins sur Ubuntu
+
+```bash
+curl -fsSL https://pkg.jenkins.io/debian/jenkins.io-2023.key | sudo tee \
+  /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+  https://pkg.jenkins.io/debian binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+sudo apt update && sudo apt install jenkins docker.io -y
+sudo usermod -aG docker jenkins
+sudo systemctl start jenkins
+```
+
+## Créer la Pipeline dans Jenkins
+
+1. **New Item** → Pipeline → OK
+2. **General** → Discard old builds → Max 10
+3. **Build Triggers** → Poll SCM → `H/5 * * * *` (toutes les 5 min)
+4. **Pipeline** → Pipeline script from SCM → Git
+5. **Repository URL** → `https://github.com/TON_USER/fds-enterprise`
+6. **Script Path** → `Jenkinsfile`
+7. **Save** → Build Now
+
+## Lancer en local (test rapide)
+
+```bash
+# Sans PostgreSQL/Redis (SQLite pour les tests)
+cd backend
+pip install -r requirements.txt pytest pytest-flask
+pytest ../tests/ -v
+```
+
+## Endpoints de smoke test
+
+| Endpoint | Attendu | Description |
+|----------|---------|-------------|
+| `GET /health` | `{"status":"ok"}` | Santé app + DB + Redis |
+| `GET /metrics` | Prometheus metrics | Monitoring |
+| `GET /api/transactions` | `401` | Auth requise |
