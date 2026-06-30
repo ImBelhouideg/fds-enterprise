@@ -122,7 +122,7 @@ pipeline {
                     docker compose up -d --force-recreate
 
                     echo Waiting for services...
-                    timeout /t 20 /nobreak
+                    ping 127.0.0.1 -n 21 > nul
 
                     echo Container status:
                     docker compose ps
@@ -135,7 +135,7 @@ pipeline {
             steps {
                 echo "Running smoke tests..."
                 bat '''
-                    timeout /t 10 /nobreak
+                    ping 127.0.0.1 -n 11 > nul
                     curl -sf http://localhost/health
                     curl -o NUL -sw "Status: %%{http_code}\\n" http://localhost/api/transactions
                 '''
