@@ -39,10 +39,10 @@ pipeline {
                 bat '''
                     cd backend
                     python -m venv .venv
-                    call .venv\\Scripts\\activate.bat
-                    pip install -r requirements.txt --quiet
-                    pip install pytest pytest-cov --quiet
-                    python -m pytest ..\\tests\\ -v --junitxml=test-results.xml
+                    .venv\\Scripts\\python.exe -m pip install --upgrade pip --quiet
+                    .venv\\Scripts\\python.exe -m pip install -r requirements.txt --quiet
+                    .venv\\Scripts\\python.exe -m pip install pytest pytest-cov --quiet
+                    .venv\\Scripts\\python.exe -m pytest ..\\tests\\ -v --junitxml=test-results.xml
                 '''
             }
             post {
@@ -57,9 +57,8 @@ pipeline {
             steps {
                 bat '''
                     cd backend
-                    call .venv\\Scripts\\activate.bat
-                    pip install flake8 --quiet
-                    flake8 . --max-line-length=120 --exclude=.venv,__pycache__ || exit /b 0
+                    .venv\\Scripts\\python.exe -m pip install flake8 --quiet
+                    .venv\\Scripts\\python.exe -m flake8 . --max-line-length=120 --exclude=.venv,__pycache__ || exit /b 0
                 '''
             }
         }
