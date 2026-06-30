@@ -1,0 +1,19 @@
+# Secrets
+.env
+*.pem *.key *.crt
+
+# Python
+__pycache__/ *.py[cod] .venv/ venv/ .pytest_cache/ .coverage
+
+# Data
+uploads/* models/*.pkl models/*.joblib
+!uploads/.gitkeep !models/.gitkeep
+
+# Logs
+logs/ *.log
+
+# Docker local data
+.docker-data/
+
+# IDE
+.vscode/ .idea/ *.swp

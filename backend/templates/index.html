@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FDS Enterprise — Fraud Detection Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/main.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+
+<!-- ════ AUTH SHELL ═══════════════════════════════════════════════ -->
+<div id="auth-shell">
+  <div class="auth-bg">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="auth-brand">FDS<span>.io</span></div>
+          <div class="auth-tagline">Fraud Detection Platform</div>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <div class="auth-tab active" onclick="AuthPage.switchTab('login',this)">Connexion</div>
+        <div class="auth-tab" onclick="AuthPage.switchTab('register',this)">Inscription</div>
+      </div>
+
+      <!-- Login -->
+      <div id="auth-login">
+        <div class="auth-title">Bon retour</div>
+        <div class="auth-sub">Accédez à votre tableau de bord FDS Enterprise</div>
+        <div style="height:16px"></div>
+        <div class="field">
+          <label class="field-label">Email ou nom d'utilisateur</label>
+          <input class="field-input" type="email" id="l-email" placeholder="admin@fds.io" autocomplete="email">
+        </div>
+        <div class="field">
+          <label class="field-label">Mot de passe</label>
+          <input class="field-input" type="password" id="l-pwd" placeholder="••••••••" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')AuthPage.login()">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);cursor:pointer">
+            <input type="checkbox" id="l-remember" style="accent-color:var(--cyan)"> Se souvenir
+          </label>
+        </div>
+        <button class="btn btn-primary btn-full" id="login-btn" onclick="AuthPage.login()">Connexion</button>
+        <div id="login-error" style="display:none;margin-top:12px;padding:10px;border-radius:var(--r2);background:var(--red2);border:1px solid rgba(255,64,96,.3);color:var(--red);font-size:12px"></div>
+
+        <div class="demo-box">
+          <div class="demo-title">Comptes de démonstration</div>
+          <div class="demo-row"><span class="demo-cred">admin@fds.io / Admin@123</span><span class="demo-role">Admin</span></div>
+          <div class="demo-row"><span class="demo-cred">analyst@fds.io / Analyst@123</span><span class="demo-role">Analyst</span></div>
+          <div class="demo-row"><span class="demo-cred">manager@fds.io / Manager@123</span><span class="demo-role">Manager</span></div>
+        </div>
+      </div>
+
+      <!-- Register -->
+      <div id="auth-register" style="display:none">
+        <div class="auth-title">Créer un compte</div>
+        <div class="auth-sub">Rejoignez la plateforme FDS Enterprise</div>
+        <div style="height:16px"></div>
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label">Prénom</label>
+            <input class="field-input" type="text" id="r-fname" placeholder="Alice">
+          </div>
+          <div class="field">
+            <label class="field-label">Nom</label>
+            <input class="field-input" type="text" id="r-lname" placeholder="Martin">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">Nom d'utilisateur</label>
+          <input class="field-input" type="text" id="r-username" placeholder="alice.martin">
+        </div>
+        <div class="field">
+          <label class="field-label">Email</label>
+          <input class="field-input" type="email" id="r-email" placeholder="alice@company.com">
+        </div>
+        <div class="field">
+          <label class="field-label">Mot de passe (min. 8 caractères)</label>
+          <input class="field-input" type="password" id="r-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')AuthPage.register()">
+        </div>
+        <button class="btn btn-primary btn-full" id="register-btn" onclick="AuthPage.register()">Créer un compte</button>
+        <div id="register-error" style="display:none;margin-top:12px;padding:10px;border-radius:var(--r2);background:var(--red2);border:1px solid rgba(255,64,96,.3);color:var(--red);font-size:12px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ APP SHELL ════════════════════════════════════════════════ -->
+<div id="app-shell">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <span class="brand-text">FDS<span>.io</span></span>
+    </div>
+    <span class="version-chip">v3.0 ENTERPRISE</span>
+    <div style="flex:1"></div>
+    <div class="top-search">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="top-search-input" placeholder="Recherche globale…" onkeydown="if(event.key==='Enter')App.globalSearch(this.value)">
+      <span class="kbd">⌘K</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px;margin-left:8px">
+      <button class="top-btn" onclick="App.toggleNotifPanel()" title="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot" id="notif-badge"></div>
+      </button>
+      <div class="user-pill" onclick="App.toggleUserDropdown()">
+        <div class="avatar" id="top-avatar">A</div>
+        <div>
+          <div class="user-name" id="top-name">—</div>
+          <div class="user-role" id="top-role">—</div>
+        </div>
+        <div id="user-dropdown" class="user-dropdown">
+          <div class="dd-item" onclick="App.navigate('profile')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profil
+          </div>
+          <div class="dd-item" onclick="App.navigate('settings')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Paramètres
+          </div>
+          <div class="dd-sep"></div>
+          <div class="dd-item danger" onclick="App.logout()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Déconnexion
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="nav-section">
+        <div class="nav-label">Principal</div>
+        <div class="nav-item active" id="nav-dashboard" onclick="App.navigate('dashboard')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item" id="nav-analyze" onclick="App.navigate('analyze')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Analyser
+        </div>
+        <div class="nav-item" id="nav-transactions" onclick="App.navigate('transactions')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Transactions
+          <span class="nav-badge" id="nb-txn"></span>
+        </div>
+        <div class="nav-item" id="nav-alerts" onclick="App.navigate('alerts')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Alertes
+          <span class="nav-badge alert" id="nb-alerts"></span>
+        </div>
+        <div class="nav-item" id="nav-notifications" onclick="App.navigate('notifications')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Notifications
+          <span class="nav-badge alert" id="nb-notif"></span>
+        </div>
+      </div>
+
+      <div class="nav-section admin-only" style="display:none">
+        <div class="nav-label">Administration</div>
+        <div class="nav-item" id="nav-users" onclick="App.navigate('users')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Utilisateurs
+          <span class="nav-badge" id="nb-users"></span>
+        </div>
+        <div class="nav-item" id="nav-audit" onclick="App.navigate('audit')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Audit
+        </div>
+        <div class="nav-item" id="nav-monitoring" onclick="App.navigate('monitoring')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Monitoring
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Compte</div>
+        <div class="nav-item" id="nav-profile" onclick="App.navigate('profile')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Profil
+        </div>
+        <div class="nav-item" id="nav-settings" onclick="App.navigate('settings')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Paramètres
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="sb-user">
+          <div class="avatar" id="sb-avatar" style="width:26px;height:26px;font-size:11px">A</div>
+          <div class="sb-info">
+            <div class="name" id="sb-name">—</div>
+            <div class="role" id="sb-role">—</div>
+          </div>
+          <div class="live-dot"></div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="page-wrap">
+
+        <!-- ═══ DASHBOARD ══════════════════════════════════════ -->
+        <div class="page active" id="page-dashboard">
+          <div class="page-header">
+            <div>
+              <div class="page-title">Security Operations Center</div>
+              <div class="page-sub">Surveillance fraude temps réel</div>
+            </div>
+            <div class="page-actions">
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)">
+                <div class="live-dot"></div> Live
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="DashboardPage.load()">↻ Rafraîchir</button>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi c-cyan"><div class="kpi-label">Transactions totales</div><div class="kpi-value" id="k-total">—</div><div class="kpi-sub">toutes périodes</div></div>
+            <div class="kpi c-green"><div class="kpi-label">Approuvées</div><div class="kpi-value" id="k-approved">—</div><div class="kpi-sub">paiements validés</div></div>
+            <div class="kpi c-red"><div class="kpi-label">Bloquées</div><div class="kpi-value" id="k-blocked">—</div><div class="kpi-trend down" id="k-fraud" style="margin-top:6px"></div></div>
+            <div class="kpi c-amber"><div class="kpi-label">Volume approuvé</div><div class="kpi-value" id="k-amount">—</div><div class="kpi-sub">MAD</div></div>
+            <div class="kpi c-red"><div class="kpi-label">Taux de fraude</div><div class="kpi-value" id="k-fraud-rate">—</div><div class="kpi-sub">des transactions</div></div>
+            <div class="kpi c-purple"><div class="kpi-label">Score risque moyen</div><div class="kpi-value" id="k-risk">—</div><div class="kpi-sub">/ 100</div></div>
+          </div>
+
+          <div class="dash-grid">
+            <div class="card">
+              <div class="card-header"><div class="card-title">Activité (14 jours)</div></div>
+              <div class="chart-wrap h200"><canvas id="chart-daily"></canvas></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">Fraudes par pays</div></div>
+              <div id="country-list"><div class="empty-state"><div class="empty-icon">🌍</div></div></div>
+            </div>
+          </div>
+
+          <div class="dash-grid-3">
+            <div class="card">
+              <div class="card-header"><div class="card-title">Distribution risque</div></div>
+              <div class="chart-wrap h200"><canvas id="chart-risk"></canvas></div>
+            </div>
+            <div class="card" style="grid-column:span 2">
+              <div class="card-header"><div class="card-title">Niveaux de risque</div></div>
+              <div id="risk-dist-labels"></div>
+            </div>
+          </div>
+
+          <div class="card full-width">
+            <div class="card-header">
+              <div class="card-title">Transactions récentes</div>
+              <button class="btn btn-ghost btn-sm" onclick="App.navigate('transactions')">Voir tout →</button>
+            </div>
+            <div class="table-wrap">
+              <table class="tbl">
+                <thead><tr><th>Référence</th><th>Utilisateur</th><th>Marchand</th><th>Montant</th><th>Pays</th><th>Score</th><th>Statut</th></tr></thead>
+                <tbody id="dash-tbody"><tr><td colspan="7" style="text-align:center;padding:24px"><div class="skeleton" style="height:14px;width:80%;margin:auto"></div></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ ANALYZE ════════════════════════════════════════ -->
+        <div class="page" id="page-analyze">
+          <div class="page-header">
+            <div>
+              <div class="page-title">Analyseur de transaction</div>
+              <div class="page-sub">Évaluation IA temps réel avec explications SHAP</div>
+            </div>
+          </div>
+          <div class="analyze-layout">
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div class="card">
+                <div class="card-title" style="margin-bottom:14px">Paramètres</div>
+                <div class="user-tabs">
+                  <button class="user-tab active" onclick="AnalyzePage.setUser('user@fds.io',this)">User 1</button>
+                  <button class="user-tab" onclick="AnalyzePage.setUser('analyst@fds.io',this)">User 2</button>
+                  <button class="user-tab" onclick="AnalyzePage.setUser('manager@fds.io',this)">User 3</button>
+                </div>
+                <div class="field">
+                  <label class="field-label">Montant (MAD)</label>
+                  <input class="field-input" type="number" id="a-amount" placeholder="350.00" min="0.01" step="0.01">
+                </div>
+                <div class="field">
+                  <label class="field-label">Pays</label>
+                  <select class="field-input" id="a-country" onchange="AnalyzePage._updateCountryWarn()">
+                    <option value="MA">🇲🇦 Maroc</option><option value="FR">🇫🇷 France</option>
+                    <option value="US">🇺🇸 États-Unis</option><option value="GB">🇬🇧 Royaume-Uni</option>
+                    <option value="DE">🇩🇪 Allemagne</option><option value="ES">🇪🇸 Espagne</option>
+                    <option value="IT">🇮🇹 Italie</option><option value="CA">🇨🇦 Canada</option>
+                    <option value="RU">🇷🇺 Russie ⚠️</option><option value="CN">🇨🇳 Chine ⚠️</option>
+                    <option value="NG">🇳🇬 Nigeria ⚠️</option><option value="BR">🇧🇷 Brésil</option>
+                    <option value="IN">🇮🇳 Inde</option><option value="PK">🇵🇰 Pakistan ⚠️</option>
+                  </select>
+                </div>
+                <div id="country-warn" style="display:none;margin:-4px 0 12px;font-size:11px;color:var(--amber)">⚠️ Pays à risque élevé — signal de fraude</div>
+                <div class="field">
+                  <label class="field-label">Marchand</label>
+                  <input class="field-input" type="text" id="a-merchant" placeholder="Amazon, Jumia, Marjane…">
+                </div>
+                <div class="field">
+                  <label class="field-label">Numéro carte (4 derniers chiffres)</label>
+                  <input class="field-input" type="text" id="a-card" placeholder="4521" maxlength="4">
+                </div>
+                <button class="btn btn-primary btn-full" id="analyze-btn" onclick="AnalyzePage.submit()">
+                  <span id="analyze-btn-text">⚡ Analyser</span>
+                </button>
+              </div>
+
+              <div class="card">
+                <div class="card-title" style="margin-bottom:12px">Scénarios de test</div>
+                <div class="scenario-grid">
+                  <button class="scenario-btn" onclick="AnalyzePage.loadScenario('normal')"><div class="scenario-name">✅ Normal</div><div class="scenario-desc">350 MAD · Maroc</div></button>
+                  <button class="scenario-btn" onclick="AnalyzePage.loadScenario('amount')"><div class="scenario-name">💰 Montant élevé</div><div class="scenario-desc">8 500 MAD</div></button>
+                  <button class="scenario-btn" onclick="AnalyzePage.loadScenario('geo')"><div class="scenario-name">🌍 Géo risque</div><div class="scenario-desc">Nigeria ⚠️</div></button>
+                  <button class="scenario-btn" onclick="AnalyzePage.loadScenario('duplicate')"><div class="scenario-name">🔁 Doublon</div><div class="scenario-desc">Transaction répétée</div></button>
+                  <button class="scenario-btn" onclick="AnalyzePage.loadScenario('velocity')"><div class="scenario-name">⚡ Vélocité</div><div class="scenario-desc">4 en 1.2 sec</div></button>
+                  <button class="scenario-btn" onclick="AnalyzePage.loadScenario('combined')"><div class="scenario-name">🚨 Max risque</div><div class="scenario-desc">Russie · 9999 MAD</div></button>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div id="analyze-placeholder" class="card">
+                <div class="empty-state">
+                  <div class="soc-ring"><div style="font-size:28px">🛡️</div></div>
+                  <div class="empty-title">Moteur FDS prêt</div>
+                  <div class="empty-sub">Entrez les paramètres et lancez l'analyse</div>
+                </div>
+              </div>
+
+              <div id="gauge-card" class="gauge-card hidden" style="display:none">
+                <div class="gauge-bg-glow"></div>
+                <svg class="gauge-svg" width="140" height="105" viewBox="0 0 140 105">
+                  <path class="g-track" d="M 15 90 A 62 62 0 1 1 125 90"/>
+                  <path class="g-fill" id="g-fill" d="M 15 90 A 62 62 0 1 1 125 90"/>
+                  <text class="g-score" x="70" y="75" id="g-score">0</text>
+                  <text class="g-sub" x="70" y="90">RISK SCORE</text>
+                </svg>
+                <div class="verdict v-ok" id="verdict">
+                  <span class="verdict-icon" id="v-icon">🛡️</span>
+                  <div><div class="verdict-title" id="v-title">—</div><div class="verdict-sub" id="v-sub">—</div></div>
+                </div>
+              </div>
+
+              <div id="checks-card" class="card" style="display:none">
+                <div class="card-title" style="margin-bottom:12px">Vérifications</div>
+                <div class="checks" id="checks-list"></div>
+              </div>
+
+              <div id="shap-card" class="card" style="display:none">
+                <div class="card-header">
+                  <div class="card-title">Explications IA — SHAP</div>
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--t2)">Confiance: <span id="shap-conf">—</span></span>
+                </div>
+                <div id="shap-list"></div>
+                <div id="ai-explanation" style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:var(--r2);font-size:12px;color:var(--t2);line-height:1.5"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ TRANSACTIONS ═══════════════════════════════════ -->
+        <div class="page" id="page-transactions">
+          <div class="page-header">
+            <div><div class="page-title">Transactions</div><div class="page-sub" id="txn-sub">—</div></div>
+            <div class="page-actions">
+              <button class="btn btn-ghost btn-sm" onclick="TransactionsPage.exportCSV()">⬇ CSV</button>
+              <button class="btn btn-ghost btn-sm" onclick="TransactionsPage.load(TransactionsPage._params)">↻</button>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input class="filter-input filter-expand" type="text" id="txn-search" placeholder="🔍 Référence, marchand, utilisateur…"
+              oninput="clearTimeout(this._t);this._t=setTimeout(()=>TransactionsPage.load({search:this.value}),400)">
+            <select class="filter-input" id="txn-status" onchange="TransactionsPage.load({status:this.value})">
+              <option value="">Tous statuts</option><option value="approved">Approuvées</option><option value="blocked">Bloquées</option>
+            </select>
+            <select class="filter-input" id="txn-risk" onchange="TransactionsPage.load({risk_level:this.value})">
+              <option value="">Tous niveaux</option><option value="critical">Critique</option>
+              <option value="high">Élevé</option><option value="medium">Moyen</option><option value="low">Faible</option>
+            </select>
+          </div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="tbl">
+                <thead><tr><th>Référence</th><th>Date</th><th>Utilisateur</th><th>Marchand</th><th>Montant</th><th>Pays</th><th>Score</th><th>Niveau</th><th>Statut</th></tr></thead>
+                <tbody id="txn-tbody"><tr><td colspan="9" style="text-align:center;padding:32px;color:var(--t3)">Chargement…</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination" id="txn-pagination"></div>
+          </div>
+        </div>
+
+        <!-- ═══ ALERTS ═════════════════════════════════════════ -->
+        <div class="page" id="page-alerts">
+          <div class="page-header">
+            <div><div class="page-title">Alertes Fraude</div><div class="page-sub">Transactions bloquées par ordre de risque</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="App.navigate('alerts')">↻</button>
+          </div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="tbl">
+                <thead><tr><th>Référence</th><th>Date</th><th>Utilisateur</th><th>Marchand</th><th>Montant</th><th>Pays</th><th>Score</th><th>Niveau</th><th>Statut</th></tr></thead>
+                <tbody id="alerts-tbody"><tr><td colspan="9" style="text-align:center;padding:32px;color:var(--t3)">Chargement…</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination" id="alerts-pagination"></div>
+          </div>
+        </div>
+
+        <!-- ═══ NOTIFICATIONS ══════════════════════════════════ -->
+        <div class="page" id="page-notifications">
+          <div class="page-header">
+            <div><div class="page-title">Notifications</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="NotifPage.markAllRead()">✓ Tout lire</button>
+          </div>
+          <div class="card" id="notif-page-list">
+            <div class="empty-state"><div class="empty-icon">🔔</div><div class="empty-sub">Chargement…</div></div>
+          </div>
+        </div>
+
+        <!-- ═══ USERS ══════════════════════════════════════════ -->
+        <div class="page" id="page-users">
+          <div class="page-header">
+            <div><div class="page-title">Gestion des utilisateurs</div><div class="page-sub">RBAC — Contrôle d'accès</div></div>
+            <button class="btn btn-primary btn-sm" onclick="UsersPage.openCreate()">+ Ajouter</button>
+          </div>
+          <div class="filter-bar">
+            <input class="filter-input filter-expand" type="text" id="usr-search" placeholder="🔍 Nom, email…"
+              oninput="clearTimeout(this._t);this._t=setTimeout(()=>UsersPage.load({search:this.value}),400)">
+            <select class="filter-input" onchange="UsersPage.load({role:this.value})">
+              <option value="">Tous rôles</option><option value="admin">Admin</option>
+              <option value="manager">Manager</option><option value="analyst">Analyst</option><option value="user">User</option>
+            </select>
+          </div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="tbl">
+                <thead><tr><th>Utilisateur</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Connexions</th><th>Dernière connexion</th><th>Actions</th></tr></thead>
+                <tbody id="users-tbody"><tr><td colspan="7" style="text-align:center;padding:32px;color:var(--t3)">Chargement…</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination" id="users-pagination"></div>
+          </div>
+        </div>
+
+        <!-- ═══ AUDIT ══════════════════════════════════════════ -->
+        <div class="page" id="page-audit">
+          <div class="page-header">
+            <div><div class="page-title">Journal d'audit</div><div class="page-sub">Traçabilité de toutes les actions</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="AuditPage.load()">↻</button>
+          </div>
+          <div class="filter-bar">
+            <input class="filter-input filter-expand" type="text" id="audit-search" placeholder="🔍 Action, utilisateur…"
+              oninput="clearTimeout(this._t);this._t=setTimeout(()=>AuditPage.load({action:this.value}),400)">
+            <select class="filter-input" onchange="AuditPage.load({severity:this.value})">
+              <option value="">Toutes sévérités</option><option value="info">Info</option>
+              <option value="warning">Warning</option><option value="error">Error</option><option value="critical">Critical</option>
+            </select>
+          </div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="tbl">
+                <thead><tr><th>Sévérité</th><th>Date</th><th>Utilisateur</th><th>Action</th><th>IP</th><th>Détails</th></tr></thead>
+                <tbody id="audit-tbody"><tr><td colspan="6" style="text-align:center;padding:32px;color:var(--t3)">Chargement…</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination" id="audit-pagination"></div>
+          </div>
+        </div>
+
+        <!-- ═══ MONITORING ═════════════════════════════════════ -->
+        <div class="page" id="page-monitoring">
+          <div class="page-header">
+            <div><div class="page-title">Monitoring</div><div class="page-sub">Infrastructure et performances système</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="MonitorPage.load()">↻ Actualiser</button>
+          </div>
+          <div class="grid-3" style="margin-bottom:16px">
+            <div class="metric-card">
+              <div class="metric-label">CPU</div>
+              <div class="metric-value" id="mon-cpu">—%</div>
+              <div class="metric-bar-bg"><div class="metric-bar" id="mon-cpu-bar" style="width:0%;background:var(--cyan)"></div></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Mémoire RAM</div>
+              <div class="metric-value" id="mon-ram">—%</div>
+              <div class="metric-bar-bg"><div class="metric-bar" id="mon-ram-bar" style="width:0%;background:var(--green)"></div></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Disque</div>
+              <div class="metric-value" id="mon-disk">—%</div>
+              <div class="metric-bar-bg"><div class="metric-bar" id="mon-disk-bar" style="width:0%;background:var(--amber)"></div></div>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header"><div class="card-title">État des services</div></div>
+              <div id="mon-services"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">Redis</div></div>
+              <div id="mon-redis"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ PROFILE ════════════════════════════════════════ -->
+        <div class="page" id="page-profile">
+          <div class="page-header"><div><div class="page-title">Mon Profil</div></div></div>
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:16px">Informations personnelles</div>
+              <div class="profile-hero">
+                <div class="profile-avatar" id="prof-avatar">A</div>
+                <div>
+                  <div class="profile-name" id="prof-name">—</div>
+                  <div class="profile-email" id="prof-email">—</div>
+                  <span class="role-badge" id="prof-role-badge" style="margin-top:6px">—</span>
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="field-row">
+                <div class="field"><label class="field-label">Prénom</label><input class="field-input" id="p-fname"></div>
+                <div class="field"><label class="field-label">Nom</label><input class="field-input" id="p-lname"></div>
+              </div>
+              <button class="btn btn-primary" onclick="ProfilePage.saveProfile()">Enregistrer</button>
+            </div>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:16px">Sécurité</div>
+              <div class="field"><label class="field-label">Mot de passe actuel</label><input class="field-input" type="password" id="p-old"></div>
+              <div class="field"><label class="field-label">Nouveau mot de passe</label><input class="field-input" type="password" id="p-new"></div>
+              <div class="field"><label class="field-label">Confirmer</label><input class="field-input" type="password" id="p-confirm" onkeydown="if(event.key==='Enter')ProfilePage.changePassword()"></div>
+              <button class="btn btn-primary" onclick="ProfilePage.changePassword()">Modifier</button>
+            </div>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <div class="card-title" style="margin-bottom:16px">Statistiques</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+              <div class="card-sm"><div style="font-size:11px;color:var(--t2);margin-bottom:4px">Transactions</div><div style="font-family:var(--mono);font-size:20px;font-weight:700" id="prof-total">—</div></div>
+              <div class="card-sm"><div style="font-size:11px;color:var(--t2);margin-bottom:4px">Approuvées</div><div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--green)" id="prof-approved">—</div></div>
+              <div class="card-sm"><div style="font-size:11px;color:var(--t2);margin-bottom:4px">Bloquées</div><div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--red)" id="prof-blocked">—</div></div>
+              <div class="card-sm"><div style="font-size:11px;color:var(--t2);margin-bottom:4px">Volume</div><div style="font-family:var(--mono);font-size:20px;font-weight:700" id="prof-amount">—</div></div>
+              <div class="card-sm"><div style="font-size:11px;color:var(--t2);margin-bottom:4px">Connexions</div><div style="font-family:var(--mono);font-size:20px;font-weight:700" id="prof-logins">—</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SETTINGS ═══════════════════════════════════════ -->
+        <div class="page" id="page-settings">
+          <div class="page-header"><div><div class="page-title">Paramètres</div></div></div>
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:16px">Notifications</div>
+              <div class="setting-row">
+                <div class="setting-info"><div class="label">Email</div><div class="desc">Alertes fraude par email</div></div>
+                <div class="toggle on" id="tog-email" onclick="SettingsPage.toggle('notifications_email',this)"></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info"><div class="label">Push</div><div class="desc">Notifications push navigateur</div></div>
+                <div class="toggle on" id="tog-push" onclick="SettingsPage.toggle('notifications_push',this)"></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info"><div class="label">Sons</div><div class="desc">Alerte sonore sur fraude critique</div></div>
+                <div class="toggle" id="tog-sound" onclick="SettingsPage.toggle('notifications_sound',this)"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:16px">Détection fraude</div>
+              <div class="field">
+                <label class="field-label">Seuil d'alerte (score 0-100)</label>
+                <input class="field-input" type="number" id="fraud-threshold" value="50" min="1" max="100">
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="SettingsPage.save({fraud_alert_threshold:parseInt(document.getElementById('fraud-threshold').value)})">Enregistrer</button>
+            </div>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:16px">Sécurité</div>
+              <div class="setting-row">
+                <div class="setting-info"><div class="label">Double authentification (2FA)</div><div class="desc">TOTP via Google Authenticator</div></div>
+                <button class="btn btn-ghost btn-sm" onclick="Toast.info('2FA','Disponible dans la version Pro')">Configurer</button>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info"><div class="label">Sessions actives</div><div class="desc">Gérer vos appareils connectés</div></div>
+                <button class="btn btn-ghost btn-sm" onclick="Toast.info('Sessions','1 session active')">Voir</button>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info"><div class="label">Déconnecter partout</div><div class="desc">Révoquer toutes les sessions</div></div>
+                <button class="btn btn-danger btn-sm" onclick="App.logout()">Déconnecter</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:16px">Intégrations</div>
+              <div class="setting-row">
+                <div class="setting-info"><div class="label">Slack</div><div class="desc">Alertes vers un canal Slack</div></div>
+                <button class="btn btn-ghost btn-sm" onclick="Toast.info('Slack','Configurez le webhook dans .env')">Configurer</button>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info"><div class="label">Telegram</div><div class="desc">Notifications Telegram bot</div></div>
+                <button class="btn btn-ghost btn-sm" onclick="Toast.info('Telegram','Configurez le token dans .env')">Configurer</button>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info"><div class="label">Prometheus</div><div class="desc">Métriques sur /metrics</div></div>
+                <a class="btn btn-ghost btn-sm" href="/metrics" target="_blank">Voir</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /page-wrap -->
+    </main>
+  </div><!-- /shell -->
+</div><!-- /app-shell -->
+
+<!-- ════ MODALS ════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="txn-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="txn-modal-title">Transaction</div><div class="modal-close" onclick="Modal.close('txn-modal')">✕</div></div>
+    <div id="txn-modal-body"></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="Modal.close('txn-modal')">Fermer</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="user-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="user-modal-title">Utilisateur</div><div class="modal-close" onclick="Modal.close('user-modal')">✕</div></div>
+    <input type="hidden" id="m-uid">
+    <div class="field-row">
+      <div class="field"><label class="field-label">Prénom</label><input class="field-input" id="m-fname"></div>
+      <div class="field"><label class="field-label">Nom</label><input class="field-input" id="m-lname"></div>
+    </div>
+    <div class="field"><label class="field-label">Email</label><input class="field-input" type="email" id="m-email"></div>
+    <div class="field"><label class="field-label">Nom d'utilisateur</label><input class="field-input" id="m-username"></div>
+    <div class="field" id="m-pwd-field"><label class="field-label">Mot de passe</label><input class="field-input" type="password" id="m-pwd" placeholder="Min. 8 caractères"></div>
+    <div class="field">
+      <label class="field-label">Rôle</label>
+      <select class="field-input" id="m-role">
+        <option value="user">User</option><option value="analyst">Analyst</option>
+        <option value="manager">Manager</option><option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Modal.close('user-modal')">Annuler</button>
+      <button class="btn btn-primary" onclick="UsersPage.saveUser()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ NOTIFICATION PANEL ═══════════════════════════════════ -->
+<div id="notif-panel" class="notif-panel">
+  <div class="notif-panel-header">
+    <div class="notif-panel-title">Notifications</div>
+    <button class="btn btn-ghost btn-xs" onclick="NotifPage.markAllRead()">Tout lire</button>
+  </div>
+  <div class="notif-list" id="notif-panel-list"></div>
+  <div style="padding:10px;border-top:1px solid var(--border)">
+    <button class="btn btn-ghost btn-sm" style="width:100%" onclick="App.navigate('notifications');App.toggleNotifPanel()">Voir toutes →</button>
+  </div>
+</div>
+
+<!-- ════ TOAST CONTAINER ══════════════════════════════════════ -->
+<div class="toast-stack" id="toast-container"></div>
+
+<!-- ════ SCRIPTS ══════════════════════════════════════════════ -->
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/pages.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

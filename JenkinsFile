@@ -1,0 +1,165 @@
+// ═══════════════════════════════════════════════════════════════
+// FDS Enterprise — Jenkinsfile (Windows + Docker Desktop)
+// Pipeline: Checkout → Test → Build → Push → Deploy → Smoke Test
+// ═══════════════════════════════════════════════════════════════
+
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE    = "fds-backend"
+        DOCKER_REGISTRY = credentials('DOCKER_REGISTRY')
+        DOCKER_CREDS    = credentials('docker-hub-creds')
+        IMAGE_TAG       = "${env.BUILD_NUMBER}"
+        IMAGE_FULL      = "${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${IMAGE_TAG}"
+        IMAGE_LATEST    = "${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 30, unit: 'MINUTES')
+        timestamps()
+    }
+
+    stages {
+
+        // ── STAGE 1: Checkout ─────────────────────────────────
+        stage('Checkout') {
+            steps {
+                echo "Cloning repository..."
+                checkout scm
+                bat 'echo Branch: %GIT_BRANCH% Build: %BUILD_NUMBER%'
+            }
+        }
+
+        // ── STAGE 2: Test ─────────────────────────────────────
+        stage('Test') {
+            steps {
+                echo "Running tests..."
+                bat '''
+                    cd backend
+                    python -m venv .venv
+                    call .venv\\Scripts\\activate.bat
+                    pip install -r requirements.txt --quiet
+                    pip install pytest pytest-cov --quiet
+                    python -m pytest ..\\tests\\ -v --junitxml=test-results.xml
+                '''
+            }
+            post {
+                always {
+                    junit 'backend/test-results.xml'
+                }
+            }
+        }
+
+        // ── STAGE 3: Code Quality ─────────────────────────────
+        stage('Code Quality') {
+            steps {
+                bat '''
+                    cd backend
+                    call .venv\\Scripts\\activate.bat
+                    pip install flake8 --quiet
+                    flake8 . --max-line-length=120 --exclude=.venv,__pycache__ || exit /b 0
+                '''
+            }
+        }
+
+        // ── STAGE 4: Build Docker Image ───────────────────────
+        stage('Build Docker Image') {
+            steps {
+                echo "Building image: ${IMAGE_FULL}"
+                bat '''
+                    docker build ^
+                        -t %IMAGE_FULL% ^
+                        -t %IMAGE_LATEST% ^
+                        -f backend\\Dockerfile ^
+                        .\\backend
+                '''
+                bat 'docker images | findstr %DOCKER_IMAGE%'
+            }
+        }
+
+        // ── STAGE 5: Security Scan ────────────────────────────
+        stage('Security Scan') {
+            steps {
+                echo "Scanning image with Trivy..."
+                bat '''
+                    docker run --rm ^
+                        -v //var/run/docker.sock:/var/run/docker.sock ^
+                        aquasec/trivy:latest image ^
+                        --severity HIGH,CRITICAL ^
+                        --exit-code 0 ^
+                        %IMAGE_FULL% || exit /b 0
+                '''
+            }
+        }
+
+        // ── STAGE 6: Push to Docker Hub ───────────────────────
+        stage('Push to Docker Hub') {
+            steps {
+                echo "Pushing to Docker Hub..."
+                bat '''
+                    echo %DOCKER_CREDS_PSW%| docker login -u %DOCKER_CREDS_USR% --password-stdin
+                    docker push %IMAGE_FULL%
+                    docker push %IMAGE_LATEST%
+                '''
+            }
+            post {
+                always {
+                    bat 'docker logout || exit /b 0'
+                }
+            }
+        }
+
+        // ── STAGE 7: Deploy (local Docker Desktop) ────────────
+        stage('Deploy') {
+            steps {
+                echo "Deploying locally via docker compose..."
+                bat '''
+                    echo Stopping old containers...
+                    docker compose down --remove-orphans
+
+                    echo Starting new stack...
+                    docker compose up -d --force-recreate
+
+                    echo Waiting for services...
+                    timeout /t 20 /nobreak
+
+                    echo Container status:
+                    docker compose ps
+                '''
+            }
+        }
+
+        // ── STAGE 8: Smoke Test ───────────────────────────────
+        stage('Smoke Test') {
+            steps {
+                echo "Running smoke tests..."
+                bat '''
+                    timeout /t 10 /nobreak
+                    curl -sf http://localhost/health
+                    curl -o NUL -sw "Status: %%{http_code}\\n" http://localhost/api/transactions
+                '''
+            }
+        }
+
+    }
+
+    post {
+        success {
+            echo "PIPELINE SUCCESS - Build #${BUILD_NUMBER} - Image: ${IMAGE_FULL}"
+        }
+        failure {
+            echo "PIPELINE FAILED - Build #${BUILD_NUMBER} - Check logs above"
+        }
+        always {
+            echo "Cleaning up..."
+            bat '''
+                docker rmi %IMAGE_FULL% || exit /b 0
+                docker rmi %IMAGE_LATEST% || exit /b 0
+                docker system prune -f || exit /b 0
+                rmdir /s /q backend\\.venv || exit /b 0
+            '''
+        }
+    }
+}

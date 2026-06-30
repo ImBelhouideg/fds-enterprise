@@ -1,0 +1,61 @@
+{
+  "title": "FDS — Fraud Detection System",
+  "uid": "fds-main",
+  "version": 1,
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Transactions",
+      "gridPos": {"x":0,"y":0,"w":6,"h":4},
+      "targets": [{"expr": "sum(fds_transactions_total)", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "Blocked (Fraud)",
+      "gridPos": {"x":6,"y":0,"w":6,"h":4},
+      "targets": [{"expr": "sum(fds_transactions_total{status='blocked'})", "refId": "A"}]
+    },
+    {
+      "type": "gauge",
+      "title": "Fraud Rate %",
+      "gridPos": {"x":12,"y":0,"w":6,"h":4},
+      "targets": [{"expr": "100 * sum(rate(fds_transactions_total{status='blocked'}[5m])) / sum(rate(fds_transactions_total[5m]))", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "minVizValue": 0, "maxVizValue": 100}
+    },
+    {
+      "type": "stat",
+      "title": "Active Users",
+      "gridPos": {"x":18,"y":0,"w":6,"h":4},
+      "targets": [{"expr": "fds_active_users", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Transaction Rate",
+      "gridPos": {"x":0,"y":4,"w":12,"h":8},
+      "targets": [
+        {"expr": "rate(fds_transactions_total{status='approved'}[1m])", "legendFormat": "Approved", "refId": "A"},
+        {"expr": "rate(fds_transactions_total{status='blocked'}[1m])", "legendFormat": "Blocked", "refId": "B"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "API Latency (p99)",
+      "gridPos": {"x":12,"y":4,"w":12,"h":8},
+      "targets": [{"expr": "histogram_quantile(0.99, rate(fds_request_duration_seconds_bucket[5m]))", "refId": "A"}]
+    },
+    {
+      "type": "bargauge",
+      "title": "Fraud Checks — Failures",
+      "gridPos": {"x":0,"y":12,"w":12,"h":6},
+      "targets": [{"expr": "sum by(check_name) (fds_fraud_checks_total{result='fail'})", "legendFormat": "{{check_name}}", "refId": "A"}]
+    },
+    {
+      "type": "histogram",
+      "title": "Transaction Amounts Distribution",
+      "gridPos": {"x":12,"y":12,"w":12,"h":6},
+      "targets": [{"expr": "rate(fds_transaction_amount_mad_bucket[5m])", "refId": "A"}]
+    }
+  ]
+}
