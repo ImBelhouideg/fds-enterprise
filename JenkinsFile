@@ -119,15 +119,22 @@ pipeline {
                     docker compose down --remove-orphans
 
                     echo Starting new stack...
+                    set POSTGRES_DB=fds_db
+                    set POSTGRES_USER=fds_user
+                    set POSTGRES_PASSWORD=StrongPass123!
+                    set REDIS_PASSWORD=RedisPass456!
+                    set SECRET_KEY=SuperSecretFlaskKey789RandomString
+                    set JWT_SECRET_KEY=JWTSecretKey012Random
+                    set GRAFANA_ADMIN_PASSWORD=GrafanaPass123!
                     docker compose up -d --force-recreate
 
                     echo Waiting for services...
-                    ping 127.0.0.1 -n 21 > nul
+                    ping 127.0.0.1 -n 21 1>nul
 
                     echo Container status:
                     docker compose ps
                 '''
-            }
+                }
         }
 
         // ── STAGE 8: Smoke Test ───────────────────────────────
